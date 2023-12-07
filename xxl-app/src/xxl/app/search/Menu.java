@@ -10,7 +10,9 @@ public class Menu extends pt.tecnico.uilib.menus.Menu {
     public Menu(Spreadsheet receiver) {
         super(Label.TITLE, //
                 new DoShowValues(receiver), //
-                new DoShowFunctions(receiver) //
+                new DoShowFunctions(receiver), //
+                new DoShowReferences(receiver), //
+                new DoShowEvenValues(receiver)
         );
     }
 

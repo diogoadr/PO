@@ -11,6 +11,10 @@ interface Label {
     /** Show cells with specified value. */
     String SEARCH_VALUES = "Procurar valores";
 
+    String SEARCH_EVEN_VALUES = "Procurar valores pares";
+
+    String SEARCH_REFERENCES = "Procurar referecencias";
+
     /** Show cells with specified function. */
     String SEARCH_FUNCTIONS = "Procurar funções";
 
