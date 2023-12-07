@@ -1,10 +1,18 @@
 package xxl;
 
+import xxl.cells.AbstractStorage;
+import xxl.cells.Cell;
+import xxl.cells.CellComparator;
+import xxl.cells.Range;
+import xxl.cells.Storage;
+import xxl.content.search.FunctionSearchStrategy;
+import xxl.content.search.ValueSearchStrategy;
 import xxl.exceptions.UnrecognizedEntryException;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -18,8 +26,9 @@ public class Spreadsheet implements Serializable {
     private int _lines;
     private int _columns; 
 
-    private Storage _storage = new Storage();
-    private Range _range = new Range();
+    private Storage _cutBuffer;
+    private AbstractStorage _storage = new Storage();
+    private Range _range;
 
     private boolean _changed = false;
 
@@ -37,63 +46,180 @@ public class Spreadsheet implements Serializable {
     public void setChanged(boolean changed) {
         _changed = changed;
     }
+    
+    public int size(){
+        return _lines + _columns;
+    }
 
-    /**
-     * Insert specified content in specified range.
-     *
-     * @param rangeSpecification range to be traveled
-     * @param contentSpecification content
-     */
+    private void createRange(String rangeSpecification, AbstractStorage storage) throws UnrecognizedEntryException{
+        _range = new Range(rangeSpecification, storage);
 
-    public void insertContents(String rangeSpecification, String contentSpecification) throws UnrecognizedEntryException /* FIXME maybe add exceptions */ {
+        if(_range.verifyRange(_lines, _columns))
+            return;
+            
+        throw new UnrecognizedEntryException(rangeSpecification);
+        
+    }
+    public void insertContent(String rangeSpecification, String contentSpecification) throws UnrecognizedEntryException{
+        insertContent(rangeSpecification, contentSpecification, _storage);
+    }
 
-        _range.setRange(rangeSpecification, _storage);
+    public void insertContent(String rangeSpecification, String contentSpecification, AbstractStorage storage) throws UnrecognizedEntryException {
 
-        if(_range.verifyRange(_lines, _columns)){
+        createRange(rangeSpecification, storage);
+        _range.insert(contentSpecification);
 
-            for(int i = _range.getBeginRow(); i <= _range.getEndRow(); i++){
-                for(int j = _range.getBeginColumn(); j <= _range.getEndColumn(); j++){
-                    _storage.addToStorage(i + ";" + j, contentSpecification, i, j);
-                }
+        setChanged(true);     
+
+    }
+
+    public void deleteContent(String rangeSpecification) throws UnrecognizedEntryException {
+
+        createRange(rangeSpecification, _storage);
+
+        _range.delete();
+        setChanged(true);
+
+    }
+
+    //copy from the storage to the cutBuffer creating a new instance of the cells copied
+    public void copy(String rangeSpecification) throws UnrecognizedEntryException{
+        _cutBuffer = new Storage();
+
+        createRange(rangeSpecification, _storage);
+
+        if (_range.direction() == "horizontal"){
+            putHorizontally(_range.getCells(), 1, 1, _cutBuffer);
+            _cutBuffer.setDirection("horizontal");
+
+        }else{
+            putVertically(_range.getCells(), 1, 1, _cutBuffer);
+            _cutBuffer.setDirection("vertical");
+        }
+
+        setChanged(true);
+    }
+
+    public void paste(String rangeSpecification) throws UnrecognizedEntryException{
+
+        //empty cutbuffer
+        if(_cutBuffer == null) return;
+
+        createRange(rangeSpecification, _storage);
+
+        int row = _range.getBeginRow();
+        int column = _range.getBeginColumn();
+
+        if((_cutBuffer.size() == _range.size() && _cutBuffer.getDirection() == _range.direction()) 
+            || _range.size() == 1){
+
+            if(_cutBuffer.getDirection() == "horizontal"){
+                createRange("1;1:1;" + _cutBuffer.size(), _cutBuffer);
+                putHorizontally(_range.getCells(), row, column, _storage);
             }
 
-            setChanged(true);
+            if(_cutBuffer.getDirection() == "vertical"){
+                createRange("1;1:" + _cutBuffer.size() + ";1", _cutBuffer);      
+                putVertically(_range.getCells(),row, column, _storage);
+            }
 
-        } else
-            throw new UnrecognizedEntryException(rangeSpecification);
-        
+        }
+
+        if(_cutBuffer.size() != _range.size()){ return;}
 
     }
 
-    /**
-     * Gets a list of one or more cells
-     *
-     * @param rangeSpecification range to be traveled
-     * @return List<Cell> list of cell/s
-     */
-    
-    public List<Cell> showCell(String rangeSpecification) throws UnrecognizedEntryException{
+    private void putHorizontally(ArrayList<Cell> cells, int row, int column, AbstractStorage storage) throws UnrecognizedEntryException{
 
-        _range.setRange(rangeSpecification, _storage);
+        for (Cell cell: cells){
+            Cell copiedCell = new Cell(cell.getContent().asString(), _storage);
 
-        if(_range.verifyRange(_lines, _columns)){
+            //updates the value in the copied cell
+            _storage.add("0;0", copiedCell);
+            //creates the cell in the cut buffer
+            storage.add(row + ";" + column++, copiedCell);
+            //deletes the copied cell from the spreadsheet
+            _storage.delete("0;0");
 
-            return _range.getCells();
+            if(storage == _cutBuffer)
+                copiedCell.removeObserver();
 
-        } else
-            throw new UnrecognizedEntryException(rangeSpecification);
+            if(column > _columns){
+                column = 1;
+                row += 1;
 
-        
+                if(row > _lines) return;
+                
+            }
+        }
     }
 
-    /**
-     * Adds user to spreadsheet
-     *
-     * @param user user to be added
-     */
+    private void putVertically(ArrayList<Cell> cells, int row, int column, AbstractStorage storage) throws UnrecognizedEntryException{
+
+        for (Cell cell: cells){
+            Cell copiedCell = new Cell(cell.getContent().asString(), _storage);
+
+            //updates the value in the copied cell
+            _storage.add("0;0", copiedCell);
+            //creates the cell in the cut buffer
+            storage.add(row++ + ";" + column, copiedCell);
+            //deletes the copied cell from the spreadsheet
+            _storage.delete("0;0");
+
+            if(storage == _cutBuffer)
+                copiedCell.removeObserver();
+
+            if(row > _lines){
+                row = 1;
+                column += 1;
+
+                if(column > _columns) return;
+                
+            }
+        }
+
+    }
+
+    public ArrayList<Cell> getCells(String rangeSpecification, AbstractStorage storage) throws UnrecognizedEntryException{
+        createRange(rangeSpecification, storage);
+        return _range.getCells();
+    }
+
+    public ArrayList<String> showCutBuffer(){
+        if(_cutBuffer == null){
+            return new ArrayList<String>();
+        }
+        
+        return _cutBuffer.storageToString();
+    }
+
+    public ArrayList<String> showAbstractStorage(String rangeSpecification) throws UnrecognizedEntryException{
+
+        createRange(rangeSpecification, _storage);
+
+        ArrayList<String> toString = _range.rangeToString();
+        toString.add(String.valueOf(_range.size()));
+
+        return toString;
+
+
+    }
 
     public void addUser(User user){
         _users.add(user);
+    }
+
+    public ArrayList<String> searchValue(String value){
+        
+        return _storage.search(value, new ValueSearchStrategy());
+    }
+
+    public ArrayList<String> searchFunction(String value){
+        ArrayList<String> toString =_storage.search(value, new FunctionSearchStrategy());
+
+        Collections.sort(toString, new CellComparator());
+
+        return toString;
     }
 
 }

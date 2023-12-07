@@ -1,30 +1,23 @@
 package xxl.content.functions;
 
-import xxl.Cell;
-import xxl.Storage;
+import xxl.cells.AbstractStorage;
+import xxl.cells.Cell;
+import xxl.content.literal.Literal;
+import xxl.content.search.Visitor;
 
 public abstract class BinaryFunction extends Function{
-    public abstract String getFunction();
+    public abstract void setValue(Literal value);
 
-    public abstract Storage getStorage();
+    public abstract AbstractStorage getStorage();
 
     public abstract int calculate(Cell cell1, Cell cell2);
     public abstract int calculate(Cell cell, int number);
     public abstract int calculate(int number1, int number2);
     public abstract int calculate(int number, Cell cell);
-
-    /**
-     * Computes and returns the result of a given binary function
-     * 
-     * @throws NumberFormatException if a string cannot be converted into a int
-     * @throws NullPointerException if a cell isn't defined or a cell is out of bounds
-     * @throws ArithmeticException if tried to devide by zero
-     * @return result of the function
-     */
-
-    protected int compute() throws NumberFormatException, NullPointerException, ArithmeticException{
+    
+    public String compute() throws NumberFormatException, NullPointerException, ArithmeticException{
         String function = getFunction();
-        Storage storage = getStorage();
+        AbstractStorage storage = getStorage();
 
         String range = function.substring(5 , function.length()-1);
         String[] interval = range.split(",");
@@ -35,11 +28,7 @@ public abstract class BinaryFunction extends Function{
             Cell cell1 = storage.searchCell(interval[0]);
             Cell cell2 = storage.searchCell(interval[1]);
 
-            if (cell1 == null || cell2 == null){
-                throw new NullPointerException();
-            }
-
-            return calculate(cell1, cell2);
+            return String.valueOf(calculate(cell1, cell2));
 
         } else if (range.split(";").length == 2){
 
@@ -51,7 +40,7 @@ public abstract class BinaryFunction extends Function{
                     Cell cell = storage.searchCell(interval[0]);
                     int number = Integer.parseInt(interval[1]);
 
-                    return calculate(cell, number);
+                    return String.valueOf(calculate(cell, number));
 
                 } else {
 
@@ -59,14 +48,16 @@ public abstract class BinaryFunction extends Function{
                     Cell cell = storage.searchCell(interval[1]);
                     int number = Integer.parseInt(interval[0]);
                     
-                    return calculate(number, cell);
+                    return String.valueOf(calculate(number, cell));
                 }
             }
             
         //two numbers
         }
 
-        return calculate(Integer.parseInt(interval[0]), Integer.parseInt(interval[1]));
+        return String.valueOf(calculate(Integer.parseInt(interval[0]), Integer.parseInt(interval[1])));
 
     }
+
+    public void accept(Visitor v) { v.visit(this); }
 }

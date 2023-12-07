@@ -1,47 +1,55 @@
 package xxl.content;
 
-import xxl.Cell;
-import xxl.Storage;
+import xxl.cells.AbstractStorage;
+import xxl.cells.Observer;
 import xxl.content.literal.Literal;
+import xxl.content.literal.LiteralString;
+import xxl.content.search.Visitor;
 
-public class Reference extends Content{
+public class Reference extends Content implements Observer{
+    
     private int _row;
     private int _column;
-    private Storage _storage;
+    private LiteralString _value = new LiteralString("");
 
-    public Reference(String content, Storage storage){
+    private AbstractStorage _storage;
+
+    public Reference(String content, AbstractStorage storage){
         String[] range = content.replaceAll("=", "").split(";");
 
         _row = Integer.parseInt(range[0]);
         _column = Integer.parseInt(range[1]);
+
         _storage = storage;
     }
 
     public String toString(){
-        Cell cell = _storage.searchCell(_row + ";" + _column);
         
-        try {
-
-            return cell.getContent().value().toString() + "=" + cell.toString().split("\\|")[0];
-
-        } catch (NullPointerException e) {
-            return "#VALUE=" + _row + ";" + _column;
-        }
+        return _value.toString() + "=" + _storage.toString(_row + ";" + _column).split("\\|")[0];
         
     }
 
     public String asString(){
-        return _storage.searchCell(_row + ";" + _column).asString();
+        return "=" + _row + ";" + _column;
     }
 
     public int asInt(){
-        return _storage.searchCell(_row + ";" + _column).asInt();
+        return _value.asInt();
     }
 
     public Literal value(){
-
-        return _storage.searchCell(_row + ";" + _column).getContent().value();
-        
+        return _value;
     }
+    
+    public void update(){
+
+        _value.setString(_storage.searchCell(_row + ";" + _column).getContent().value().asString());
+
+        if(_value.asString() == "")
+            _value.setString("#VALUE");
+
+    }
+
+    public void accept(Visitor v) { v.visit(this); }
 
 }

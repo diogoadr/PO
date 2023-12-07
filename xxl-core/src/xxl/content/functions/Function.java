@@ -1,26 +1,39 @@
 package xxl.content.functions;
 
+import xxl.cells.Observer;
 import xxl.content.Content;
 import xxl.content.literal.Literal;
-import xxl.content.literal.LiteralInteger;
+import xxl.content.literal.LiteralString;
+import xxl.content.search.Visitor;
 
-public abstract class Function extends Content{
+public abstract class Function extends Content implements Observer{
 
-    protected abstract int compute();
+    public abstract String compute();
+
+    public abstract void setValue(Literal value);
 
     public abstract String getFunction();
 
     public String toString(){
-        try {
-            return compute() + getFunction();
-        } catch (NumberFormatException | NullPointerException | ArithmeticException e){
-            return "#VALUE" + getFunction();
-        }
-        
+        return value().asString() + getFunction();
     }
 
-    public Literal value(){
-        return new LiteralInteger(compute());
+    public String asString(){
+        return getFunction();
     }
+
+    public int asInt() throws NumberFormatException{
+        return value().asInt();
+    }
+
+    public void update() {
+        try{
+            setValue(new LiteralString(compute()));
+        } catch (NumberFormatException | ArithmeticException e){
+            setValue(new LiteralString("#VALUE"));
+        }
+    }
+
+    public void accept(Visitor v) { v.visit(this); }
 
 }

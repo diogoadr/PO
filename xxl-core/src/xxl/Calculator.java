@@ -40,7 +40,6 @@ public class Calculator {
      * @throws IOException if there is some error while serializing the state of the spreadsheet to disk.
      */
     public void save() throws FileNotFoundException, MissingFileAssociationException, IOException {
-        // FIXME implement serialization method
         if(_filename == null || _filename.equals("")){
             throw new MissingFileAssociationException();
             
@@ -60,7 +59,6 @@ public class Calculator {
      * @throws IOException if there is some error while serializing the state of the spreadsheet to disk.
      */
     public void saveAs(String filename) throws FileNotFoundException, MissingFileAssociationException, IOException {
-        // FIXME implement serialization method
         _filename = filename;
         save();
     }
@@ -74,7 +72,6 @@ public class Calculator {
      *         an error while processing this file.
      */
     public void load(String filename) throws UnavailableFileException, ClassNotFoundException, IOException {
-        // FIXME implement serialization method
         _filename = filename;
         try(ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(new FileInputStream(filename)))){
             _spreadsheet = (Spreadsheet) ois.readObject();
@@ -92,7 +89,6 @@ public class Calculator {
      */
 
     public void importFile(String filename) throws ImportFileException {
-        // FIXME open import file and feed entries to new spreadsheet (in a cycle)
         try (BufferedReader reader = new BufferedReader(new FileReader(filename))){
             int lines = Integer.parseInt(reader.readLine().split("=")[1]);
             int columns = Integer.parseInt(reader.readLine().split("=")[1]);
@@ -105,16 +101,13 @@ public class Calculator {
 
                 String[] fields = line.split("\\|", -1);
 
-                try {
-                    //       each entry is inserted with:
-                    _spreadsheet.insertContents(fields[0], fields[1]);
-                } catch (UnrecognizedEntryException e){
-                    e.printStackTrace();
-                }
-            }
+                _spreadsheet.insertContent(fields[0], fields[1]);
 
-	    // FIXME more exceptions before or after?
-        } catch (IOException /* FIXME maybe other exceptions */ e) {
+            }
+        } catch(FileNotFoundException e){
+            throw new ImportFileException(filename, e);
+
+        } catch (UnrecognizedEntryException | NumberFormatException | IOException e) {
             throw new ImportFileException(filename, e);
         }
     }
